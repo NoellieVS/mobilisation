@@ -7,6 +7,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from scipy import stats
 import math
+import statistics
 
 
 PATH = ""
@@ -234,6 +235,7 @@ df = df.loc[df['date'] > dt.date(2023, 7, 9)]
 df = df.loc[df['date'] < dt.date(2023, 8, 22)]
 df = df.loc[df['device_sn'] != "VS823Cx-00647"]
 df['mobilisation'] = df['spectral_power_law_exponent'] * -1
+df['r2'] = df['spectral_power_law_goodness_of_fit']
 
 def make_datacube(df):
     n_days = (df['date'].max() - df['date'].min()).days + 1
@@ -246,7 +248,7 @@ def make_datacube(df):
         for h in range(24):
             # print(d, h)
             select = (df['date'] == d) & (df['hour'] == h)
-            sample = df.loc[select, 'mobilisation'].values
+            sample = df.loc[select, 'r2'].values
             sample_sizes.append(len(sample))
             datacube[i, h, :len(sample)] = sample
 
@@ -282,7 +284,8 @@ def make_kw_test(datacube_1,datacube_2):
             stat_matrix[i, h] = math.log(result.pvalue)
     return stat_matrix
 
-result = make_kw_test(datacube_temoin,datacube_hydroscore)
+result_hydro = make_kw_test(datacube_temoin,datacube_hydroscore)
+result_stress = make_kw_test(datacube_temoin,datacube_stress)
 
 
 # %%
@@ -291,7 +294,7 @@ date_grid = df['date'].drop_duplicates().sort_values().tolist()
 fig = go.Figure(data =
      go.Heatmap(x = list(range(24)),
                 y = date_grid, 
-                z = result, 
+                z = result_hydro, 
                 colorscale='thermal',
                 zmin = -6,
                 zmax = -3))
@@ -299,5 +302,58 @@ fig = go.Figure(data =
 fig.update_layout(title = "temoin vs hydro")
 fig.show()
 fig.write_html(f'{PATH}_datacube.html')
+
+# %%
+mean_result_hydro = np.mean(result_hydro, axis=1)
+mean_result_stress = np.mean(result_stress, axis=1)
+
+
+#%%
+fig = go.Figure()
+
+for moda in df['modality'].unique() : 
+
+    df_moda = df.loc[df['modality'] == moda]
+
+    fig.add_trace(go.Box(x=df_moda['date'],
+                        y=df_moda['r2'],
+                        name=moda,
+                        boxpoints = False))
+fig.show()
+
+#%%
+fig = make_subplots(rows=2,
+                    cols = 1, 
+                    shared_xaxes=True,
+                    vertical_spacing=0.06)
+
+for moda in df['modality'].unique() : 
+
+    df_moda = df.loc[df['modality'] == moda]
+
+    fig.add_trace(go.Box(x=df_moda['date'],
+                        y=df_moda['r2'],
+                        name=moda,
+                        boxpoints = False),
+                        row=1,col=1)
+    
+
+fig.add_trace(go.Scatter(
+                x=date_grid,
+                y=mean_result_hydro,
+                name ='temoin vs hydro'),
+                row=2,col=1)
+
+
+fig.add_trace(go.Scatter(
+                x=date_grid,
+                y=mean_result_stress,
+                name ='temoin vs stress'),
+                row=2,col=1)
+
+fig.update_layout( boxmode='group') 
+fig.show()
+# %%
+fig.write_html(f'{PATH}viz.html')
 
 # %%
