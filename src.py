@@ -16,6 +16,7 @@ year = 2023
 operation = "CU2304-00086"
 in_db = False
 
+###
 
 INPUT_DIR = f"/media/noellie/HDD/files/{year}/{operation}"
 OUTPUT_DIR = f"/home/noellie/Documents/Suivi saison 2023/bayer_melon"
